@@ -5,7 +5,7 @@ Report generator — renders findings into HTML and JSON output files.
 import json
 import os
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -19,6 +19,8 @@ def generate_report(
     repo_path: str,
     total_files: int,
     output_dir: str = ".",
+    token_usage: Optional[Dict] = None,
+    incremental_info: Optional[Dict] = None,
 ) -> Dict[str, str]:
     """
     Render findings into HTML and JSON report files.
@@ -71,6 +73,11 @@ def generate_report(
         "severity_counts": counts,
         "findings": findings,
     }
+    if token_usage:
+        json_report["token_usage"] = token_usage
+    if incremental_info:
+        json_report["incremental_scan"] = incremental_info
+
     json_path = os.path.join(output_dir, "report.json")
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(json_report, f, indent=2, ensure_ascii=False)
