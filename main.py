@@ -30,6 +30,7 @@ load_dotenv()
 from tools.repo_scanner import scan_repo
 from tools.file_metrics import get_metrics_for_all
 from tools.heuristic_analyzer import analyze_all_metrics
+from tools.semgrep_analyzer import analyze_with_semgrep
 from tools.merger import merge_findings
 from tools.cache_manager import (
     load_cache,
@@ -168,7 +169,7 @@ def main():
     os.makedirs(args.output, exist_ok=True)
     print_banner()
 
-    total_steps = 5 if not args.no_ai else 4
+    total_steps = 6 if not args.no_ai else 5
     step = 0
 
     # -- Step 1: Scan ---------------------------------------------------------
@@ -243,7 +244,17 @@ def main():
     summary = "  ".join(f"{sev_color(s)}{c} {s}{RESET}" for s, c in sev_counts.items())
     print(f"  {GREEN}OK{RESET} {len(heuristic_issues)} heuristic findings  {summary}\n")
 
-    # -- Step 4: AI Analysis (ADK, only for changed files) --------------------
+    # -- Step 4: Semgrep Analysis (multi-language, repo-wide) -----------------
+    step += 1
+    print_step(step, total_steps, "Running Semgrep static analysis (multi-language)...")
+    semgrep_issues: list = []
+    if changed_files:
+        semgrep_issues = analyze_with_semgrep(args.repo_path, files_with_metrics)
+    sg_counts = count_severities(semgrep_issues)
+    sg_summary = "  ".join(f"{sev_color(s)}{c} {s}{RESET}" for s, c in sg_counts.items())
+    print(f"  {GREEN}OK{RESET} {len(semgrep_issues)} Semgrep findings  {sg_summary}\n")
+
+    # -- Step 5: AI Analysis (ADK, only for changed files) --------------------
     ai_issues: list = []
     token_usage: dict = {}
 
@@ -279,8 +290,8 @@ def main():
     step += 1
     print_step(step, total_steps, "Merging and deduplicating findings...")
 
-    # Merge newly computed findings first, then append carried-forward ones
-    new_findings = merge_findings(heuristic_issues, ai_issues)
+    # Merge: heuristic + semgrep first, then AI on top, then carry-forward
+    new_findings = merge_findings(merge_findings(heuristic_issues, semgrep_issues), ai_issues)
     merged = merge_findings(new_findings, previous_findings)
 
     carry_note = (

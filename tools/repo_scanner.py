@@ -1,7 +1,9 @@
 """
 Tool 1: repo_scanner.py
 Walks a repository directory and collects all supported source files.
-Supports: .py, .js, .ts files.
+Supports: .py, .js, .ts, .java, .go, .rb, .cs, .php, .kt, .rs, .sh files.
+Python-specific heuristics (radon, bandit, AST) are guarded by language checks
+and run only on .py files; Semgrep handles all languages.
 """
 
 import os
@@ -9,9 +11,19 @@ from typing import List, Dict
 
 
 SUPPORTED_EXTENSIONS = {
-    ".py": "python",
-    ".js": "javascript",
-    ".ts": "typescript",
+    # Core languages (original)
+    ".py":   "python",
+    ".js":   "javascript",
+    ".ts":   "typescript",
+    # Extended languages (Semgrep-supported)
+    ".java": "java",
+    ".go":   "go",
+    ".rb":   "ruby",
+    ".cs":   "csharp",
+    ".php":  "php",
+    ".kt":   "kotlin",
+    ".rs":   "rust",
+    ".sh":   "shell",
 }
 
 

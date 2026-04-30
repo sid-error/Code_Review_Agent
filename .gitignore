@@ -32,6 +32,7 @@ ENV/
 report.html
 report.json
 output/
+.code_review_cache.json
 
 # Scratch / debug scripts
 scratch_*.py
