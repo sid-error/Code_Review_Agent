@@ -68,6 +68,7 @@ def generate_report(
     # Write JSON
     json_report = {
         "repo": repo_name,
+        "repo_path": os.path.abspath(repo_path),
         "generated_at": generated_at,
         "total_files_scanned": total_files,
         "total_issues": len(findings),

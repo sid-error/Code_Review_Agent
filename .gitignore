@@ -38,6 +38,7 @@ output/
 .code_review_cache.json
 .code_review_progress.json
 .code_review_reports/
+.code_review_runs.json
 
 # Scratch / debug scripts
 scratch_*.py
