@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Temporal + PostgreSQL for Code Review Agent
+#
+# Usage:
+#   docker compose up -d
+#
+# Services:
+#   postgresql      - Persistence backend (port 5432)
+#   temporal        - Temporal server with auto-setup (port 7233)
+#   temporal-ui     - Web UI to inspect workflows (port 8080)
+#
+# Temporal SDK connects to localhost:7233
+# Temporal UI at  http://localhost:8080
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL (persistence backend) ─────────────────────────────────────
+  postgresql:
+    image: postgres:16
+    container_name: temporal-postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_USER: temporal
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Temporal Server (auto-setup with PostgreSQL) ──────────────────────────
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal-server
+    restart: unless-stopped
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+    ports:
+      - "7233:7233"
+
+  # ── Temporal UI ───────────────────────────────────────────────────────────
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-ui
+    restart: unless-stopped
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,http://localhost:8501
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgresql-data:
+    driver: local

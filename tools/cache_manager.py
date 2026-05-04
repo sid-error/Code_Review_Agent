@@ -15,6 +15,9 @@ from typing import Dict, List, Tuple
 # Name of the cache file placed at the root of the scanned repository.
 CACHE_FILENAME = ".code_review_cache.json"
 
+# Directory (inside the repo) where the report JSON is stored.
+REPORT_DIR_NAME = ".code_review_reports"
+
 
 # ---------------------------------------------------------------------------
 # Hashing
@@ -43,6 +46,18 @@ def compute_file_hash(path: str) -> str:
 def get_cache_path(repo_path: str) -> str:
     """Return the absolute path to the cache file for the given repo."""
     return os.path.join(os.path.abspath(repo_path), CACHE_FILENAME)
+
+
+def get_report_json_path(repo_path: str) -> str:
+    """Return the absolute path to report.json stored inside the scanned repo.
+
+    The file is placed at:  <repo>/.code_review_reports/report.json
+    This keeps it co-located with the cache and out of the repo root clutter.
+    The directory is created automatically if it does not exist.
+    """
+    report_dir = os.path.join(os.path.abspath(repo_path), REPORT_DIR_NAME)
+    os.makedirs(report_dir, exist_ok=True)
+    return os.path.join(report_dir, "report.json")
 
 
 def load_cache(repo_path: str) -> Dict[str, str]:

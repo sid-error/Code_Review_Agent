@@ -37,6 +37,7 @@ from tools.cache_manager import (
     save_cache,
     filter_changed_files,
     build_updated_cache,
+    get_report_json_path,
 )
 from report.generator import generate_report
 
@@ -111,9 +112,9 @@ def print_token_usage(usage: dict):
     print(f"    {DIM}Total tokens      :{RESET}  {BOLD}{total:>10,}{RESET}\n")
 
 
-def load_previous_findings(output_dir: str) -> list:
-    """Load findings from an existing report.json in *output_dir*, if present."""
-    json_path = os.path.join(output_dir, "report.json")
+def load_previous_findings(repo_path: str) -> list:
+    """Load findings from the repo-local report.json, if present."""
+    json_path = get_report_json_path(repo_path)
     if not os.path.isfile(json_path):
         return []
     try:
@@ -218,7 +219,7 @@ def main():
         unchanged_rel_paths = {
             f.get("relative_path", f.get("path", "")) for f in unchanged_files
         }
-        all_prev = load_previous_findings(args.output)
+        all_prev = load_previous_findings(args.repo_path)
         previous_findings = [
             f for f in all_prev
             if f.get("file", "") in unchanged_rel_paths
@@ -319,6 +320,7 @@ def main():
         output_dir=args.output,
         token_usage=token_usage if token_usage else None,
         incremental_info=incremental_info,
+        json_path_override=get_report_json_path(args.repo_path),
     )
 
     # -- Save updated cache ---------------------------------------------------

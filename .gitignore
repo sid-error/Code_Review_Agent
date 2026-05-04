@@ -22,6 +22,10 @@ ENV/
 # ADK runtime artifacts
 .adk/
 
+# Temporal runtime / Docker
+temporal-config/dynamicconfig/*.yaml
+!temporal-config/dynamicconfig/development-cass.yaml
+
 # IDE / editor directories
 .vscode/
 .idea/
@@ -30,9 +34,10 @@ ENV/
 
 # Generated report output
 report.html
-report.json
 output/
 .code_review_cache.json
+.code_review_progress.json
+.code_review_reports/
 
 # Scratch / debug scripts
 scratch_*.py

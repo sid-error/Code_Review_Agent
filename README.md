@@ -1,13 +1,17 @@
 # Code Review Agent
 
-An automated, multi-agent code review system powered by **Google Gemini 2.5 Pro** (via the **Google Agent Development Kit**) and static analysis tools. It scans a Python, JavaScript, or TypeScript repository and produces a structured **HTML + JSON audit report**.
+An automated, multi-agent code review system powered by **Google Gemini 2.5 Pro** (via the **Google Agent Development Kit**), **Temporal** for workflow reliability, and **Streamlit** for an interactive UI. It scans a Python, JavaScript, or TypeScript repository and produces a structured audit report rendered directly in the browser.
 
 ---
 
 ## Architecture
 
 ```
-Scan Repo --> File Metrics --> Heuristic Analysis --> ADK Agent Analysis --> Merge --> HTML Report
+Streamlit UI ──► Temporal Workflow ──► Activities ──► HTML + JSON Report
+                       │
+              ┌────────┴────────────────────────┐
+              ▼                                  ▼
+   Pause / Resume Signal               Crash Recovery (auto-replay)
 ```
 
 ### Pipeline Phases
@@ -16,20 +20,31 @@ Scan Repo --> File Metrics --> Heuristic Analysis --> ADK Agent Analysis --> Mer
 |---|---|---|
 | 1 | `tools/repo_scanner.py` | Walks repo, finds `.py`, `.js`, `.ts` files |
 | 2 | `tools/file_metrics.py` | Computes `size_kb` and `line_count` per file |
-| 3 | `tools/heuristic_analyzer.py` | Runs `radon` (complexity), `bandit` (security), and `ast` (bare excepts, docstrings) |
-| 4 | `agent/runner.py` | ADK Runner -- dispatches file chunks to the orchestrator agent |
-| 5 | `tools/merger.py` + `report/generator.py` | Deduplicates findings, renders HTML + JSON report |
+| 3 | `tools/heuristic_analyzer.py` | Runs `radon` (complexity), `bandit` (security), `ast` (bare excepts, docstrings) |
+| 4 | `tools/semgrep_analyzer.py` | Multi-language static analysis via Semgrep |
+| 5 | `agent/runner.py` | ADK Runner — dispatches file chunks to the orchestrator agent |
+| 6 | `tools/merger.py` + `report/generator.py` | Deduplicates findings, renders HTML + JSON report |
+| 7 | `tools/cache_manager.py` | Persists file-hash cache for incremental scanning |
 
 ### ADK Agent Hierarchy
 
 ```
-agent/orchestrator/agent.py          <-- root_agent (AgentTool composition)
-    agent/architecture_agent/agent.py  <-- detects SRP, god objects, coupling
-    agent/security_agent/agent.py      <-- detects secrets, injection, XSS
-    agent/performance_agent/agent.py   <-- detects O(n^2), N+1 queries, leaks
+agent/orchestrator/agent.py          <- root_agent (AgentTool composition)
+    agent/architecture_agent/agent.py  <- detects SRP, god objects, coupling
+    agent/security_agent/agent.py      <- detects secrets, injection, XSS
+    agent/performance_agent/agent.py   <- detects O(n^2), N+1 queries, leaks
 ```
 
-Each specialist is a standalone `google.adk.agents.Agent` that can also be run independently with `adk web` or `adk run`.
+### Temporal Workflow
+
+```
+temporal/
+├── workflows.py    # CodeReviewWorkflow — durable, pausable pipeline
+├── activities.py   # One @activity.defn per pipeline phase
+├── worker.py       # Worker process (register & run)
+├── client.py       # Temporal client factory (localhost:7233)
+└── models.py       # RunConfig, ProgressUpdate dataclasses
+```
 
 ---
 
@@ -51,73 +66,87 @@ cp .env.example .env
 # GOOGLE_API_KEY=your_gemini_api_key
 ```
 
-Get an API key from [Google AI Studio](https://aishudio.google.com/).
+### 3. Start Temporal (Docker + PostgreSQL)
+
+Temporal uses **PostgreSQL 16** as its persistence backend, managed via Docker Compose.
+
+```bash
+# Start Temporal server + PostgreSQL + Temporal UI (detached)
+docker compose up -d
+
+# First run pulls images and initialises the DB (~30-60 s).
+# Check all containers are running:
+docker compose ps
+```
+
+> **Temporal UI** is available at `http://localhost:8080` — inspect workflows, history, and signals.
 
 ---
 
 ## Usage
 
-### Full analysis (heuristic + AI)
+### Streamlit UI (recommended)
 
 ```bash
+# Terminal 1 — Temporal + Cassandra via Docker
+docker compose up -d
+
+# Terminal 2 — Temporal worker
+python temporal/worker.py
+
+# Terminal 3 — Streamlit UI
+streamlit run streamlit_app.py
+```
+
+Then open `http://localhost:8501` in your browser:
+1. Enter the **repository path** in the sidebar
+2. Choose model and options
+3. Click **▶ Run Analysis**
+4. Watch live progress — use **⏸ Pause** / **▶ Resume** to control AI analysis
+5. View the full audit report inline when done
+
+### CLI (also works as before)
+
+```bash
+# Full analysis (heuristic + semgrep + AI)
 python main.py <path/to/repo>
-```
 
-### Heuristic-only (no API key needed, fast)
-
-```bash
+# Heuristic + semgrep only (no API key needed, fast)
 python main.py <path/to/repo> --no-ai
-```
 
-### Specify output directory
-
-```bash
+# Specify output directory for report.html
 python main.py <path/to/repo> --output ./results
-```
 
-### Open report in browser automatically
-
-```bash
+# Open report.html in browser automatically
 python main.py <path/to/repo> --open
+
+# Ignore cache and re-scan everything
+python main.py <path/to/repo> --full-scan
 ```
 
-### All options
-
-```
-usage: code-review-agent [-h] [--output OUTPUT] [--no-ai] [--open] [--model MODEL] repo_path
-
-positional arguments:
-  repo_path          Path to the repository to analyze
-
-options:
-  --output, -o       Directory for output files (default: current directory)
-  --no-ai            Skip AI analysis (heuristic-only mode)
-  --open             Open report.html in browser after generation
-  --model MODEL      Gemini model name (default: gemini-2.5-pro)
-```
+---
 
 ## Output
 
-Two files are written to the output directory:
-
-| File | Description |
-|---|---|
-| `report.html` | Interactive dark-theme audit report with severity filters and collapsible issue cards |
-| `report.json` | Machine-readable JSON with all findings, severity counts, and metadata |
+| File | Location | Description |
+|---|---|---|
+| `report.html` | `--output` dir (default: `.`) | Interactive dark-theme audit report |
+| `report.json` | `<repo>/.code_review_reports/report.json` | Machine-readable JSON with all findings |
+| `.code_review_cache.json` | `<repo>/` root | File-hash cache for incremental scanning |
+| `.code_review_progress.json` | `<repo>/` root | Live progress (polled by Streamlit UI) |
 
 ### Report structure per issue
 
 Each finding contains:
-- **What We Observed** -- clear description of the problem
-- **Likely Root Cause** -- why the issue exists
-- **Recommended Fix** -- concrete actionable steps
-- **Evidence** -- the relevant code snippet
+- **What We Observed** — clear description of the problem
+- **Root Cause** — why the issue exists
+- **Recommended Fix** — concrete actionable steps
+- **Evidence** — the relevant code snippet
+- **Source** — `heuristic` | `semgrep` | `ai`
 
 ---
 
 ## Running Individual Agents with ADK
-
-Each agent folder is a valid ADK module. You can run or inspect them with:
 
 ```bash
 # Inspect the full agent system in ADK Web UI
@@ -142,25 +171,38 @@ pytest tests/ -v
 
 ```
 Code_Review_Agent/
+├── streamlit_app.py           # Streamlit UI (main entry point)
+├── main.py                    # CLI entrypoint (still works)
+├── docker-compose.yml         # Temporal + Cassandra via Docker
+├── temporal-config/
+│   └── dynamicconfig/
+│       └── development-cass.yaml  # Temporal server dynamic config
+├── temporal/
+│   ├── workflows.py           # Durable workflow with pause/resume
+│   ├── activities.py          # Per-phase activity definitions
+│   ├── worker.py              # Worker process
+│   ├── client.py              # Temporal client factory
+│   └── models.py              # Shared dataclasses
 ├── agent/
 │   ├── architecture_agent/    # ADK Agent: architecture issues
 │   ├── security_agent/        # ADK Agent: security vulnerabilities
 │   ├── performance_agent/     # ADK Agent: performance problems
-│   ├── orchestrator/          # ADK root_agent: composes all three via AgentTool
-│   └── runner.py              # ADK Runner wrapper for the pipeline
+│   ├── orchestrator/          # ADK root_agent
+│   └── runner.py              # ADK Runner wrapper
 ├── tools/
 │   ├── repo_scanner.py        # Phase 1: file discovery
 │   ├── file_metrics.py        # Phase 2: size + line count
 │   ├── heuristic_analyzer.py  # Phase 3: radon + bandit + AST
+│   ├── semgrep_analyzer.py    # Phase 4: Semgrep multi-language
 │   ├── llm_analyzer.py        # File chunking + prompt building
-│   └── merger.py              # Phase 5: deduplication
+│   ├── merger.py              # Phase 6: deduplication
+│   └── cache_manager.py       # Incremental cache + report path
 ├── report/
 │   ├── generator.py           # Jinja2 renderer -> HTML + JSON
 │   └── templates/
 │       └── report.html.j2     # Premium dark-theme template
-├── tests/                     # pytest test suite (20 tests)
+├── tests/                     # pytest test suite
 ├── implementation_plan/       # Implementation plan documents
-├── main.py                    # CLI entrypoint
 ├── requirements.txt
 ├── .env.example
 └── .gitignore
@@ -173,8 +215,10 @@ Code_Review_Agent/
 | Layer | Technology |
 |---|---|
 | Language | Python 3.11+ |
+| UI | Streamlit |
+| Workflow | Temporal (Python SDK) |
 | AI Framework | Google Agent Development Kit (`google-adk`) |
 | LLM | Gemini 2.5 Pro |
-| Static Analysis | `radon` (complexity), `bandit` (security), `ast` (AST patterns) |
+| Static Analysis | `radon` (complexity), `bandit` (security), `ast`, Semgrep |
 | Report | Jinja2 HTML + JSON |
 | Config | `.env` + `python-dotenv` |

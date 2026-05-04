@@ -1,0 +1,24 @@
+# Temporal dynamic config for Cassandra backend
+# This file is mounted into the Temporal server container.
+# It sets sensible development-friendly limits.
+
+frontend.enableUpdateWorkflowExecution:
+  - value: true
+    constraints: {}
+
+frontend.enableUpdateWorkflowExecutionAsyncAccepted:
+  - value: true
+    constraints: {}
+
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+
+# Allow large workflow / activity payloads (useful for passing file content)
+frontend.grpcMaxSizeInByte:
+  - value: 10485760   # 10 MB
+    constraints: {}

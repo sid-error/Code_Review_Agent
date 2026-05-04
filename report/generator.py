@@ -21,6 +21,7 @@ def generate_report(
     output_dir: str = ".",
     token_usage: Optional[Dict] = None,
     incremental_info: Optional[Dict] = None,
+    json_path_override: Optional[str] = None,
 ) -> Dict[str, str]:
     """
     Render findings into HTML and JSON report files.
@@ -78,7 +79,9 @@ def generate_report(
     if incremental_info:
         json_report["incremental_scan"] = incremental_info
 
-    json_path = os.path.join(output_dir, "report.json")
+    json_path = json_path_override if json_path_override else os.path.join(output_dir, "report.json")
+    # Ensure the parent directory exists (important when json_path_override points to a new dir)
+    os.makedirs(os.path.dirname(os.path.abspath(json_path)), exist_ok=True)
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(json_report, f, indent=2, ensure_ascii=False)
 
