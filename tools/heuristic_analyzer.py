@@ -73,8 +73,10 @@ def _check_python_complexity(file_info: Dict) -> List[Dict]:
     path = file_info["path"]
 
     try:
+        # Note: do NOT use -a flag — it injects a non-dict "average" entry into
+        # the JSON output which breaks the block iteration below.
         result = subprocess.run(
-            ["python", "-m", "radon", "cc", path, "--json", "-a"],
+            ["python", "-m", "radon", "cc", path, "--json"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -84,7 +86,11 @@ def _check_python_complexity(file_info: Dict) -> List[Dict]:
 
         data = json.loads(result.stdout)
         for fpath, blocks in data.items():
+            if not isinstance(blocks, list):   # skip "average" or other non-list values
+                continue
             for block in blocks:
+                if not isinstance(block, dict):  # skip stray strings
+                    continue
                 complexity = block.get("complexity", 0)
                 if complexity > HIGH_COMPLEXITY_THRESHOLD:
                     name = block.get("name", "unknown")
