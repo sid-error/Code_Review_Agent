@@ -49,30 +49,30 @@ The Code Review Agent automates the tedious parts of code review. Given a path t
 │   main.py (CLI)              streamlit_app.py (Web UI)          │
 └────────────────┬────────────────────────┬───────────────────────┘
                  │                        │
-                 │              ┌─────────▼──────────┐
+                 │              ┌─────────▼────────────┐
                  │              │  Temporal Workflow   │
                  │              │  (CodeReviewWorkflow)│
                  │              └─────────┬────────────┘
                  │                        │ Activities
                  ▼                        ▼
-┌────────────────────────────────────────────────────────────────┐
-│                      Pipeline Stages                           │
-│                                                                │
+┌───────────────────────────────────────────────────────────────────┐
+│                      Pipeline Stages                              │
+│                                                                   │
 │  [1] repo_scanner ──► [2] file_metrics ──► [3] heuristic_analyzer │
-│                                        ──► [4] semgrep_analyzer    │
-│                                        ──► [5] AI (ADK Runner)     │
-│                                                │                   │
+│                                        ──► [4] semgrep_analyzer   │
+│                                        ──► [5] AI (ADK Runner)    │
+│                                                │                  │
 │                                    ┌───────────▼──────────────┐   │
-│                                    │  Orchestrator Agent (ADK) │   │
+│                                    │  Orchestrator Agent (ADK)│   │
 │                                    │  ┌────────────────────┐  │   │
-│                                    │  │ architecture_agent  │  │   │
-│                                    │  │ security_agent      │  │   │
-│                                    │  │ performance_agent   │  │   │
+│                                    │  │ architecture_agent │  │   │
+│                                    │  │ security_agent     │  │   │
+│                                    │  │ performance_agent  │  │   │
 │                                    │  └────────────────────┘  │   │
 │                                    └──────────────────────────┘   │
-│                                                                    │
+│                                                                   │
 │  [6] merger ──► [7] report generator ──► [8] cache_manager        │
-└────────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ### Key Design Decisions
