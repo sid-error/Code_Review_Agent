@@ -13,6 +13,7 @@ An automated, multi-agent code review pipeline powered by **Google Gemini AI**, 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Quick Start Guide](#quick-start-guide)
 - [Usage](#usage)
   - [Mode 1 – CLI (simple, no Temporal)](#mode-1--cli-simple-no-temporal)
   - [Mode 2 – Streamlit UI with Temporal](#mode-2--streamlit-ui-with-temporal)
@@ -226,6 +227,40 @@ All runtime options are controlled via CLI flags (for `main.py`) or the Streamli
 | `model` | `gemini-2.5-pro` | Gemini model name |
 | `no_ai` | `false` | Heuristic-only mode; skips AI, no API key needed |
 | `full_scan` | `false` | Ignore file-hash cache; re-scan every file |
+
+---
+
+## Quick Start Guide
+
+The easiest and most powerful way to use the Code Review Agent is through its Streamlit UI and Temporal orchestrator. Follow these step-by-step instructions to get up and running immediately.
+
+### Step 1: Start the Database & Temporal Backend
+Open a terminal in the project directory and start the Docker containers:
+```bash
+docker compose up -d
+```
+*(Wait about 60 seconds for PostgreSQL and Temporal to initialize).*
+
+### Step 2: Start the Temporal Worker
+Open a **new** terminal window, ensure your virtual environment is activated, and run the background worker. This process executes the actual AI code review tasks:
+```bash
+python temporal/worker.py
+```
+*(Leave this terminal window open and running in the background).*
+
+### Step 3: Launch the User Interface
+Open a **third** terminal window and launch the Streamlit dashboard:
+```bash
+streamlit run streamlit_app.py
+```
+
+### Step 4: Run Your First Code Review
+1. Your browser will automatically open to `http://localhost:8501`.
+2. In the **Sidebar**, type the absolute path to a local code repository on your computer.
+3. (Optional) Check "Heuristic Only (No AI)" if you don't have a Gemini API key yet.
+4. Click the **"▶ Run Analysis"** button.
+5. Watch the dashboard as it live-streams the progress of the repo scanner, semgrep analyzer, and the 3 AI specialist agents!
+6. Once completed, click **"Download HTML Report"** to view your beautiful, comprehensive code review.
 
 ---
 
